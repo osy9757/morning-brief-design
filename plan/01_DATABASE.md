@@ -9,9 +9,10 @@ CREATE TABLE users (
   id            BIGSERIAL PRIMARY KEY,
   email         VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,          -- bcrypt
+  role          VARCHAR(10)  NOT NULL DEFAULT 'user', -- admin|user
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
--- 시드: ADMIN_EMAIL/ADMIN_PASSWORD_HASH 1행. 회원가입 API 없음(1인 서비스).
+-- 시드: ADMIN_EMAIL/ADMIN_PASSWORD_HASH 1행(role='admin'). 회원가입 API 없음(1인 서비스).
 
 -- ───────────────────────── LLM 변수화 (요구 2)
 CREATE TABLE llm_profiles (
@@ -243,7 +244,7 @@ CREATE INDEX idx_analyses_asof ON stock_analyses(as_of DESC);
 
 문서 자기완결 원칙(00 §1): 아래 유니버스는 전 티커를 인라인으로 명기한다(외부 문서 참조로 대체 금지, #16).
 
-1. `users`: env의 관리자 1행.
+1. `users`: env의 관리자 1행(role='admin').
 2. `portfolios`: 관리자 user 소유 1행 (`name='기본'`, `base_currency='KRW'`) — 03 §6 단일 포트폴리오 전제가 첫 실행부터 성립 (#33).
 3. `llm_profiles` 4행 + `llm_task_routing` 6행 — 04 §2 표 그대로 (profile_test는 라우팅 밖, #21).
 4. `stocks`: 아래 고정 유니버스 (`source='seed'`).

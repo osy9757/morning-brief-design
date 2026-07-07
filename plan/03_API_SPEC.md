@@ -1,10 +1,10 @@
 # 03. API 명세 (REST, `/api/v1`)
 
-공통: 인증 필요 엔드포인트는 `Authorization: Bearer <JWT>` (로그인 제외 전부). 에러 응답 통일 `{"error": {"code": "STRING_CODE", "message": "한국어 메시지"}}`. 날짜는 `YYYY-MM-DD`(KST), 시각은 ISO8601. 숫자는 JSON number(퍼센트는 소수 아닌 % 값: 1.23 = +1.23%).
+공통: 인증 필요 엔드포인트는 `Authorization: Bearer <JWT>`. 공개 엔드포인트는 `GET /brief/*`, `GET /stocks/*`(search·analysis·evidence 다운로드), `GET /fear-greed/*`, `POST /stocks/{ticker}/analyze`이다. `/portfolio/*`는 로그인 user 이상, `/llm/*`와 `/batch/*`는 admin 전용이다(role!=admin이면 403 `FORBIDDEN`). 에러 응답 통일 `{"error": {"code": "STRING_CODE", "message": "한국어 메시지"}}`. 날짜는 `YYYY-MM-DD`(KST), 시각은 ISO8601. 숫자는 JSON number(퍼센트는 소수 아닌 % 값: 1.23 = +1.23%).
 
 ## 1. 인증
 
-`POST /auth/login` — body `{"email": "...", "password": "..."}` → 200 `{"access_token": "...", "expires_in": 604800}` (7일). 401 `INVALID_CREDENTIALS`. 회원가입/리프레시 없음(1인 서비스, 만료 시 재로그인).
+`POST /auth/login` — body `{"email": "...", "password": "..."}` → 200 `{"access_token": "...", "expires_in": 604800, "role": "admin"}` (7일, JWT에도 `role` 클레임 포함). 401 `INVALID_CREDENTIALS`. 회원가입/리프레시 없음(1인 서비스, 만료 시 재로그인).
 
 ## 2. 데일리 브리핑 (메인 페이지 — 단일 호출)
 
@@ -36,7 +36,8 @@
   "sectors": [
     {"etf": "XLK", "name": "기술", "ret_1d": 1.4, "ret_1w": 2.1, "ret_1m": 5.3, "ret_3m": 9.8, "ret_ytd": 14.2,
      "rs_spy_1m": 1.9, "above_ma50": true, "above_ma200": true, "vol_20d": 18.3,
-     "rsi_14": 62.1, "volume_ratio": 1.31, "flow_score": 1.8, "trend": "UP"}
+     "rsi_14": 62.1, "volume_ratio": 1.31, "flow_score": 1.8,
+     "fear_greed": {"score": 76.66, "label": "Extreme Greed"}, "trend": "UP"}
   ],
   "heatmap": [{"name": "기술", "etf": "XLK", "size": 32, "value": 1.4}],
   "money_flow": {
@@ -135,6 +136,8 @@ action ∈ WAIT|SELL|PYRAMID|AVERAGE_DOWN|REBALANCE. REBALANCE 시 drift(=weight
 
 ## 7. LLM 관리 (요구 2)
 
+전 엔드포인트 admin 전용. 무인증 401, role!='admin' 403 `FORBIDDEN`.
+
 - `GET /llm/profiles` → `[{"id", "name", "provider", "model", "api_key_env", "temperature", "max_tokens", "enabled"}]`
 - `POST /llm/profiles` / `PUT /llm/profiles/{id}` / `DELETE /llm/profiles/{id}` (라우팅에서 참조 중이면 409 `PROFILE_IN_USE`)
 - `GET /llm/routing` → `[{"task": "event_digest", "profile": "claude-main", "fallback_profile": "deepseek-cheap"}]` (6 task — profile_test 제외, #21)
@@ -143,6 +146,8 @@ action ∈ WAIT|SELL|PYRAMID|AVERAGE_DOWN|REBALANCE. REBALANCE 시 drift(=weight
 - `GET /llm/usage?days=30` → task별 호출수/토큰 합계 (llm_call_logs 집계)
 
 ## 8. 배치
+
+전 엔드포인트 admin 전용. 무인증 401, role!='admin' 403 `FORBIDDEN`.
 
 - `POST /batch/run` — body `{"brief_date": null}` (null=오늘) → 202 `{"run_id": 41}`. 실행 중이면 409 `BATCH_RUNNING`.
 - `GET /batch/runs/{id}` → `{"status": "running", "stage_status": {"S1": "ok", "S2": "running"}}`

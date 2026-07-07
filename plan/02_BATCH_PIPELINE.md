@@ -95,6 +95,7 @@ Factor는 각각 서로 다른 유지되는 FRED 시리즈에 의존한다(USSLI
 
 대상: SPDR 11종 `XLK 기술, XLF 금융, XLE 에너지, XLV 헬스케어, XLY 임의소비재, XLP 필수소비재, XLI 산업재, XLU 유틸리티, XLB 소재, XLRE 리츠, XLC 커뮤니케이션`.
 각 섹터 산출(전부 표기): `ret_1d, ret_1w, ret_1m, ret_3m, ret_ytd, rs_spy_1m`(= ret_1m − SPY ret_1m), `above_ma50, above_ma200`(bool), `vol_20d`(연율화), `rsi_14, volume_ratio`(5일 평균 거래대금/60일 평균), `flow_score`(S2.5), `trend`("UP" if close>ma50>ma200, "DOWN" if close<ma50<ma200, else "MIXED").
+각 섹터는 `fear_greed: {score, label}`도 산출한다. `score = clamp(0..100, 0.30×rsi_14 + 0.25×(clip01(ret_1m,-0.10,0.10)×100) + 0.20×trend_score + 0.15×(clip01(flow_score,-3,3)×100) + 0.10×(clip01(rs_spy_1m,-5,5)×100))`, `trend_score=(above_ma50&above_ma200?100 : (above_ma50||above_ma200?50:0))`. 라벨은 S2.3 시장 F&G와 동일하게 ≤25 Extreme Fear, ≤45 Fear, ≤55 Neutral, ≤75 Greed, >75 Extreme Greed.
 히트맵 노드: `{name, etf, size: 시가총액 가중치(고정 상수표*), value: ret_1d}` (색은 value 파생이므로 저장 필드 아님 — 05 S-D-1이 value로 착색. 03 §2·05와 필드 일치).
 *시총 가중 고정 상수(연 1회 갱신): XLK 32, XLF 13, XLV 11, XLY 11, XLC 9, XLI 8, XLP 6, XLE 3, XLU 3, XLB 2, XLRE 2.
 
