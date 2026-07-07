@@ -1,6 +1,6 @@
 # 03. API 명세 (REST, `/api/v1`)
 
-공통: 인증 필요 엔드포인트는 `Authorization: Bearer <JWT>`. 공개 엔드포인트는 `GET /brief/*`, `GET /stocks/*`(search·analysis·evidence 다운로드), `GET /fear-greed/*`, `POST /stocks/{ticker}/analyze`이다. `/portfolio/*`는 로그인 user 이상, `/llm/*`와 `/batch/*`는 admin 전용이다(role!=admin이면 403 `FORBIDDEN`). 에러 응답 통일 `{"error": {"code": "STRING_CODE", "message": "한국어 메시지"}}`. 날짜는 `YYYY-MM-DD`(KST), 시각은 ISO8601. 숫자는 JSON number(퍼센트는 소수 아닌 % 값: 1.23 = +1.23%).
+공통: 인증 필요 엔드포인트는 `Authorization: Bearer <JWT>`. 공개 엔드포인트는 `GET /brief/*`, `GET /stocks/*`(search·analysis·evidence 다운로드), `GET /fear-greed/*`이다. `POST /stocks/{ticker}/analyze`는 로그인 user 이상만 호출한다(미인증 401). `/portfolio/*`는 로그인 user 이상, `/llm/*`와 `/batch/*`는 admin 전용이다(role!=admin이면 403 `FORBIDDEN`). 에러 응답 통일 `{"error": {"code": "STRING_CODE", "message": "한국어 메시지"}}`. 날짜는 `YYYY-MM-DD`(KST), 시각은 ISO8601. 숫자는 JSON number(퍼센트는 소수 아닌 % 값: 1.23 = +1.23%).
 
 ## 1. 인증
 
@@ -75,12 +75,14 @@
 
 ## 4. 종목
 
-- `GET /stocks/search?q=엔비` → `[{"ticker": "NVDA", "name": "엔비디아", "market": "US", "sector": "기술"}]` (name/ticker ILIKE, 최대 10)
+- `GET /stocks/search?q=NVID` → `[{"ticker": "NVDA", "name": "NVIDIA", "market": "US", "sector": "기술"}]` (name/ticker ILIKE, 최대 10, 비로그인 공개)
+- `GET /stocks/search?q=삼성` → `[{"ticker": "005930", "name": "삼성전자", "market": "KR", "sector": "기술"}]`
+- `GET /stocks/search?q=카카오` → `[{"ticker": "035720", "name": "카카오", "market": "KR", "sector": "커뮤니케이션"}]` (`scripts/load_kr_stocks.py`로 적재한 KRX 전종목도 동일 검색)
 - `GET /stocks/{ticker}/analysis?date=` (date 생략 = 최신) → 200:
 
 ```json
 {
-  "ticker": "NVDA", "name": "엔비디아", "as_of": "2026-07-07",
+  "ticker": "NVDA", "name": "NVIDIA", "as_of": "2026-07-07", "source": "batch",
   "price": {"last": 181.4, "change_pct_1d": 2.1},
   "score": {"total": 74.5, "signal": "BUY",
             "breakdown": {"momentum": 82, "value": 41, "quality_growth": 88, "low_vol": 45, "macro_fit": 80, "risk_event": 90}},
@@ -103,7 +105,11 @@
 }
 ```
 
-404 `ANALYSIS_NOT_FOUND` — 분석 대상이 아니었던 종목이면 `POST /stocks/{ticker}/analyze` → 202 `{"status": "queued"}` 후 폴링. **온디맨드 경로(재감사 M4)**: 대상 티커의 가격을 즉석 수집(S1) → S2.6 팩터·탭 metrics·거버넌스 등급 즉석 계산(단일 종목이라 z-score는 최신 유니버스 분포 기준) → committee 1회 + stock_report → stock_analyses 저장. yfinance 조회 실패 시 404 `STOCK_NOT_FOUND`.
+GET은 저장된 최신 성공 분석을 그대로 반환하며 재수집·재계산을 수행하지 않는다. 응답의 `source`는 `batch|on_demand`이다.
+
+404 `ANALYSIS_NOT_FOUND` — 분석 대상이 아니었던 종목이면 로그인 후 `POST /stocks/{ticker}/analyze` → 200(성공 시 위 분석 payload + `refresh`) 후 GET 재조회. **온디맨드 경로(재감사 M4)**: 대상 티커의 가격을 즉석 수집(S1) → S2.6 팩터·탭 metrics·거버넌스 등급 즉석 계산(단일 종목이라 z-score는 최신 유니버스 분포 기준) → committee 1회 + stock_report → stock_analyses 저장. 미국/기타 종목은 yfinance 조회 실패 시, KR 6자리 종목은 FinanceDataReader(`DataReader(ticker)`) 또는 yfinance `.KS`/`.KQ` 폴백 조회 실패 시 404 `STOCK_NOT_FOUND`. `source='krx'` KR 종목은 재무·뉴스·공시가 없을 수 있으므로 해당 탭은 빈 배열/null metric을 허용하고 분석은 저장한다.
+
+`POST /stocks/{ticker}/analyze` 재수집 실행 조건은 (1) 마지막 성공 `updated_at`이 `ANALYSIS_STALE_HOURS`(기본 6)보다 오래됨, (2) 마지막 `last_attempt_at`이 `ANALYSIS_TRIGGER_DEBOUNCE_MIN`(기본 5)보다 오래됨을 모두 만족해야 한다. 데이터가 신선하면 재계산 없이 기존 공유 결과와 `refresh.status="fresh"`를 반환한다. 버튼 디바운스 안이면 429 `ANALYSIS_TRIGGER_DEBOUNCED`. 재계산은 먼저 `last_attempt_at=now`를 기록한 뒤 실행하고, 성공 시 `updated_at`과 `source='on_demand'`를 갱신한다. 실패 시 `updated_at`은 유지하지/올리지 않고 `last_attempt_at`만 남긴다. 같은 종목 동시 트리거는 행 잠금으로 한 번만 실행한다.
 
 ## 5. Evidence (요구 7)
 
