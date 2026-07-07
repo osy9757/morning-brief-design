@@ -75,7 +75,8 @@
 
 ## 4. 종목
 
-- `GET /stocks/search?q=NVID` → `[{"ticker": "NVDA", "name": "NVIDIA", "market": "US", "sector": "기술"}]` (name/ticker ILIKE, 최대 10, 비로그인 공개)
+- `GET /stocks/search?q=NVID` → `[{"ticker": "NVDA", "name": "NVIDIA", "market": "US", "sector": "기술"}]` (ticker/name/search_alias ILIKE, 최대 10, 비로그인 공개)
+- `GET /stocks/search?q=엔비디아` → `[{"ticker": "NVDA", "name": "NVIDIA", "market": "US", "sector": "기술"}]` (영문 표시명 종목의 한글 별칭 검색)
 - `GET /stocks/search?q=삼성` → `[{"ticker": "005930", "name": "삼성전자", "market": "KR", "sector": "기술"}]`
 - `GET /stocks/search?q=카카오` → `[{"ticker": "035720", "name": "카카오", "market": "KR", "sector": "커뮤니케이션"}]` (`scripts/load_kr_stocks.py`로 적재한 KRX 전종목도 동일 검색)
 - `GET /stocks/{ticker}/analysis?date=` (date 생략 = 최신) → 200:

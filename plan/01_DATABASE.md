@@ -52,6 +52,7 @@ CREATE TABLE stocks (
   market    VARCHAR(10) NOT NULL,               -- US|KR
   ticker    VARCHAR(20) NOT NULL,               -- NVDA | 005930
   name      VARCHAR(100) NOT NULL,
+  search_alias VARCHAR(120),                    -- 한글 별칭 검색어(예: 구글 알파벳)
   sector    VARCHAR(50),                        -- GICS 섹터 (02 §S2.4 매핑)
   industry  VARCHAR(80),                        -- KRX 로더는 전용 exchange 컬럼이 없어 Market(KOSPI/KOSDAQ)을 보관
   currency  VARCHAR(5) NOT NULL,
@@ -263,7 +264,8 @@ CREATE INDEX idx_stock_analyses_stock_asof ON stock_analyses(stock_id, as_of DES
      (그 외 매핑 종목 NVDA MSFT AAPL AVGO AMD/AMZN TSLA/GOOGL META/COST WMT PG KO/NEE 등은 위 M7·AI Infra·ETF 목록에 이미 포함. CRM만 위 목록에 없어 여기 명시적으로 추가 — 재감사 H3)
    - **국내**: `005930 000660 069500`(KODEX200) — M4에서 확장
    - `stocks.name`: 자동완성 품질을 위해 시드 시 실제 표시명을 upsert한다. 예: `NVDA=NVIDIA`, `AAPL=Apple`, `MSFT=Microsoft`, `GOOGL=Alphabet`, `AMZN=Amazon`, `META=Meta`, `TSLA=Tesla`, `AVGO=Broadcom`, `TSM=TSMC`, `JPM=JPMorgan`, `LLY=Eli Lilly`, `SPY=S&P500 ETF`, `QQQ=나스닥100 ETF`, `XLK=미국 기술 섹터`, `005930=삼성전자`, `000660=SK하이닉스`, `069500=KODEX 200`. 매핑표에 없는 티커는 `name=ticker`로 폴백한다.
+   - `stocks.search_alias`: 영문 표시명 종목의 한글 검색 품질을 위해 실제 통용 표기만 nullable 문자열로 upsert한다. 예: `AAPL=애플`, `MSFT=마이크로소프트`, `GOOGL=구글 알파벳`, `NVDA=엔비디아`, `TSLA=테슬라`, `SPY=S&P500 에스앤피`, `QQQ=나스닥100 나스닥`, `TLT=미국 장기채`, `GLD=금 골드`. 불확실한 별칭은 NULL로 둔다.
    - **불변조건**: 02 §S4 섹터→대표종목 매핑표의 모든 티커는 이 시드 유니버스의 부분집합이어야 한다. 02 §S2.6 "추천 후보 유니버스" = (섹터 ETF ∪ 자산군 ETF ∪ M7/AI Infra ∪ S4 매핑 종목). z-score 유니버스도 이 집합으로 계산. 포트폴리오에 유니버스 밖 종목 추가 시 03 §6 자동 등록(source='yfinance_auto', #11).
-5. `scripts/load_kr_stocks.py`: 검색 전용 KRX 전종목 로더. `finance-datareader`의 `StockListing('KRX')`를 무계정 호출해 `stocks`에 upsert한다. 신규 행은 `ticker=Code(6자리)`, `name=Name`, `market='KR'`, `currency='KRW'`, `source='krx'`, `sector=Sector(있으면)`, `industry=Market(KOSPI/KOSDAQ)`, `is_etf=ETF/ETN/KODEX/TIGER 등 이름 휴리스틱`으로 저장한다. 기존 `source='seed'` 행(`005930`, `000660`, `069500` 등)은 매일 배치 핵심 유니버스 보존을 위해 `source`를 덮어쓰지 않는다. 이 로더는 seed와 분리된 수동/주기 실행 스크립트이며, 네트워크 실패는 명확히 보고하고 비치명 종료한다.
+5. `scripts/load_kr_stocks.py`: 검색 전용 KRX 전종목 로더. `finance-datareader`의 `StockListing('KRX')`를 무계정 호출해 `stocks`에 upsert한다. 신규 행은 `ticker=Code(6자리)`, `name=Name`, `search_alias=영문 Name의 실제 통용 한글 별칭(있으면)`, `market='KR'`, `currency='KRW'`, `source='krx'`, `sector=Sector(있으면)`, `industry=Market(KOSPI/KOSDAQ)`, `is_etf=ETF/ETN/KODEX/TIGER 등 이름 휴리스틱`으로 저장한다. 기존 `source='seed'` 행(`005930`, `000660`, `069500` 등)은 매일 배치 핵심 유니버스 보존을 위해 `source`를 덮어쓰지 않는다. 이 로더는 seed와 분리된 수동/주기 실행 스크립트이며, 네트워크 실패는 명확히 보고하고 비치명 종료한다.
 
 테이블 수: 21 (users, llm_profiles, llm_task_routing, llm_call_logs, stocks, prices_daily, financials, disclosures, news, macro_series, batch_runs, daily_briefs, fear_greed_history, factor_scores, stock_analyses, evidence_files, portfolios, positions, position_signals, portfolio_snapshots, alerts). `daily_briefs` JSONB 상세 구조는 03_API_SPEC.md §2 응답과 1:1(generated_at·fear_greed.history_30d 두 조립 필드 제외)이므로 03 §2를 단일 원본으로 삼는다.
