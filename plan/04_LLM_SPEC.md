@@ -82,7 +82,7 @@ async def call(task: str, payload: dict, out_schema: type[BaseModel]) -> BaseMod
 
 출력: `{"market_wrap": str, "cards": [{"headline": str, "body": str, "category": "MACRO|EARNINGS|GEOPOLITICS|SECTOR|CRYPTO|KR", "importance": 1|2|3, "source_urls": [str], "related_tickers": [str]}]}`
 
-### 4.2 stock_report (S5 — 탭 5개 해설 일괄 생성)
+### 4.2 stock_report (S5 — 탭 6개 해설 일괄 생성)
 
 ```text
 종목 {ticker} {name}의 오늘자 분석 데이터다.
@@ -92,6 +92,7 @@ async def call(task: str, payload: dict, out_schema: type[BaseModel]) -> BaseMod
 [케파빌리티] {capability.metrics}
 [테크니컬] {technical.metrics}
 [매크로] {macro: phase, macro_fit, 섹터 rs/flow}
+[실적·컨센서스] {consensus.earnings_surprises + recommendation + price_target}
 
 임무: 각 탭에 들어갈 해설을 작성하라. 탭당 3~5문장.
 - fundamental: 밸류에이션이 비싼가 싼가, 어느 분기 숫자가 그 판단의 근거인가.
@@ -99,9 +100,10 @@ async def call(task: str, payload: dict, out_schema: type[BaseModel]) -> BaseMod
 - capability: 이 회사가 돈을 더 잘 벌게 되는 중인가 — 성장률·마진 추이로 설명.
 - technical: 지금 자리(이평·고점 대비·RSI)가 진입/관망 어느 쪽에 유리한가.
 - macro: 현재 국면이 이 종목에 순풍인가 역풍인가.
+- consensus: 입력 숫자만 인용해 실적 서프라이즈, 투자의견 분포, 목표가 상승여력을 1문장으로 설명한다. 데이터가 비어 있으면 빈 이유를 간단히 쓴다.
 ```
 
-출력: `{"fundamental": str, "governance": str, "capability": str, "technical": str, "macro": str}`
+출력: `{"fundamental": str, "governance": str, "capability": str, "technical": str, "macro": str, "consensus": str}`
 
 ### 4.3 portfolio_coach (S6)
 

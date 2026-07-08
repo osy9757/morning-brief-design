@@ -143,11 +143,12 @@ signal: total≥70→BUY, ≥55→HOLD, ≥40→REDUCE, <40→EXIT. 단 total≥
 ## S5. 종목 상세 분석 (요구 7, 대상: 보유 종목 ∪ S4 게시 종목)
 
 tabs metrics·거버넌스 등급은 S2.6에서 선계산됨(#22·#23). S5는 종목별 stock_analyses 1행 생성:
-- LLM task=stock_report(04 §4.2)로 5개 탭 텍스트 생성(**overview 탭 없음** — UI '종합' 탭은 top-level score/committee로 조립, #22).
+- LLM task=stock_report(04 §4.2)로 6개 탭 텍스트 생성(**overview 탭 없음** — UI '종합' 탭은 top-level score/committee로 조립, #22).
 - **committee 채움(재감사 H2)**: S4에서 이미 committee를 받은 종목(S4 게시 후보)은 그 결과 재사용, **S4 committee가 없는 종목(보유-only·온디맨드 대상)은 S5에서 task=committee 1회 호출**해 stock_analyses.committee(NOT NULL)를 채운다.
 - tabs.fundamental: value 지표 + financials 최근 8분기 시계열
 - tabs.governance: 등급(HIGH/MID/LOW) + 항목. 국내=disclosures risk_tags 목록, 미국=회사 뉴스 중 sentiment<-0.3(news_classify 산출, #7) + 8-K성 키워드(regex: `SEC|lawsuit|investigation|offering|dilution|insider`) 필터 목록 → 등급: 건수 ≥3 HIGH, 1~2 MID, 0 LOW
 - tabs.capability: quality_growth 지표(매출/EPS 성장, ROE, 마진 추이 4분기) + R&D 비중(있으면)
+- tabs.consensus: Finnhub 실적 서프라이즈(`/stock/earnings`) + 투자의견 분포(`/stock/recommendation`) + 목표주가(`/stock/price-target`) + `upside_pct=(targetMean/last-1)*100`; FINNHUB_KEY 미설정 또는 KR 6자리 종목은 빈 배열/객체와 degraded 안내 텍스트 허용. 숫자는 엔진이 수집·계산하고 LLM은 해설만 작성한다.
 - tabs.technical: technical detail 전부(ma20/50/200·ATR14·RSI·52주고점 대비 등) + 1년 가격/MA 시리즈
 - tabs.macro: 현재 Phase(국내는 kr_regime), 종목 macro_fit, 소속 섹터 rs/flow
 - evidence 동결: `data/evidence/{date}/{ticker}/` 에 `prices_1y.csv, factor_inputs.json, financials.json, news_used.json, disclosures.json, llm_io.json` 저장 + evidence_files(scope='stock') 등록 (요구 7 "근거 다운로드")

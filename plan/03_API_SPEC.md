@@ -97,6 +97,10 @@
                      "llm_text": "…해설…"},
     "governance": {"grade": "LOW", "items": [{"date": "2026-07-01", "title": "…", "tag": "소송", "url": "…"}], "llm_text": "…"},
     "capability": {"metrics": {"revenue_yoy": 62.1, "eps_yoy": 71.3, "roe": 88.2, "op_margin_trend": [61.1, 62.4, 64.0, 64.8], "rnd_ratio": 9.1}, "llm_text": "…"},
+    "consensus": {"earnings_surprises": [{"period": "2026-04-30", "actual": 0.89, "estimate": 0.82, "surprise_pct": 8.54}],
+                  "recommendation": {"period": "2026-07-01", "strong_buy": 5, "buy": 4, "hold": 3, "sell": 0, "strong_sell": 0, "buy_total": 9, "analyst_total": 12},
+                  "price_target": {"mean": 210.0, "high": 250.0, "low": 170.0, "upside_pct": 15.77},
+                  "llm_text": "…"},
     "technical": {"metrics": {"rsi_14": 63.2, "ma50_gap_pct": 4.1, "ma200_gap_pct": 18.9, "from_52w_high_pct": -3.2, "vol_60d": 34.1},
                    "series_1y": [{"date": "2025-07-07", "close": 120.1, "ma50": 118.2, "ma200": 109.4}], "llm_text": "…"},
     "macro": {"phase": 2, "macro_fit": 80, "sector_rs_1m": 1.9, "sector_flow": 1.8, "llm_text": "…"}

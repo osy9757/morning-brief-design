@@ -105,14 +105,15 @@ ECharts gauge(반원). 기본은 시장 전체 `brief.fear_greed`, 섹터 히트
 
 헤더: name/ticker · last · 1d등락 · signal 칩 · total 점수 링(0~100 원형 게이지) + 레이더 차트(breakdown 6축, ECharts radar) · 분석 시점(as_of) · N일 전 · source(batch|on_demand).
 **위원회 블록**: 4열(모바일 아코디언) — 🐂 Bull / 🐻 Bear / ⚠ Risk / ⚖ PM(verdict+conviction 강조). PM 카드만 --accent 테두리.
-**탭 바** (순서 고정): `종합 | 펀더멘탈 | 거버넌스 | 케파빌리티 | 테크니컬 | 매크로 | 근거`. 활성 탭 하단 2px --accent.
+**탭 바** (순서 고정): `종합 | 펀더멘탈 | 실적·컨센서스 | 거버넌스 | 케파빌리티 | 테크니컬 | 매크로 | 근거`. 활성 탭 하단 2px --accent.
 
-탭은 stock_analyses.tabs의 5키(펀더멘탈·거버넌스·케파빌리티·테크니컬·매크로)와 UI 조립 탭 2개(종합·근거)로 구성 — '종합'은 별도 저장 키가 아니라 top-level score/committee로 조립(#22).
+탭은 stock_analyses.tabs의 6키(펀더멘탈·실적/컨센서스·거버넌스·케파빌리티·테크니컬·매크로)와 UI 조립 탭 2개(종합·근거)로 구성 — '종합'은 별도 저장 키가 아니라 top-level score/committee로 조립(#22).
 
 | 탭 | 구성 |
 |---|---|
-| 종합 | 점수 링 + 레이더 + PM summary + 5개 탭 llm_text 첫 문장 모음(각 탭 링크) — tabs.overview 키 없음(#22) |
+| 종합 | 점수 링 + 레이더 + PM summary + 6개 탭 llm_text 첫 문장 모음(각 탭 링크) — tabs.overview 키 없음(#22) |
 | 펀더멘탈 | metrics 4칩(PER·FwdPER·PBR·배당) + 8분기 매출/순이익 이중 바 차트 + EPS 라인 + llm_text |
+| 실적·컨센서스 | 실적 서프라이즈 표/바(실제 vs 예상 EPS·서프라이즈%) + 투자의견 분포(매수/중립/매도 스택 바 또는 칩) + 목표주가(평균·최고·최저 + 상승여력% 착색) + llm_text. 데이터 없으면 "컨센서스 데이터 없음(Finnhub 키 필요·미국 종목만)" 안내 |
 | 거버넌스 | grade 칩(HIGH --danger/MID --warn/LOW --success) + items 타임라인(date·tag 칩·title·원문 링크) + llm_text |
 | 케파빌리티 | 성장 지표 칩(매출YoY·EPS YoY·ROE·R&D비중) + 마진 추이 4분기 라인 + llm_text |
 | 테크니컬 | 1년 캔들 대신 **종가+MA50+MA200 라인 차트**(ECharts, 고정 결정) + metrics 칩(RSI·MA괴리·52주고점比·변동성) + llm_text |
