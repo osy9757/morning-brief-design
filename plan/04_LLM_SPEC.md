@@ -27,23 +27,26 @@ async def call(task: str, payload: dict, out_schema: type[BaseModel]) -> BaseMod
         # → out_schema.model_validate_json, 실패 시 오류 첨부 재시도 1회
 ```
 
-### 시드 프로파일 4종 + 라우팅 (초기값 — 설정 페이지에서 자유 변경)
+### 시드 프로파일 4종 + 전역 엔진 라우팅 (초기값 — 설정 페이지에서 자유 변경)
 
 | name | provider/model | 용도 |
 |---|---|---|
-| claude-main | anthropic/claude-sonnet-5 | 판단 품질 필요 task |
+| claude-main | anthropic/claude-sonnet-5 | 전역 엔진 Claude |
 | claude-deep | anthropic/claude-opus-4-8 | 위원회(주 1회 심층용 수동 전환 대비) |
 | deepseek-cheap | deepseek/deepseek-chat | 대량 텍스트 요약 |
-| gpt-alt | openai/gpt-5.2 | 교차검증 대체 |
+| codex | openai/gpt-5-codex | 전역 엔진 Codex. 설정 화면에서 model 값을 자유 입력으로 수정 가능 |
+
+전역 엔진 상태는 `app_settings`의 `key='llm_engine'`, `value='claude'|'codex'` 1행에 저장한다. 기본값은 `claude`다.
+`PUT /admin/llm-engine`은 아래 6개 task 전체를 선택 엔진 프로파일로, fallback을 상대 엔진 프로파일로 일괄 UPDATE한다.
 
 | task | 초기 profile | fallback | 호출 시점 |
 |---|---|---|---|
-| event_digest | claude-main | deepseek-cheap | S3, 1회/일 |
-| sector_outlook | claude-main | deepseek-cheap | S4, 1회/일 |
-| committee | claude-main | gpt-alt | S4·S5, 종목당 1회 |
-| stock_report | claude-main | deepseek-cheap | S5, 종목당 1회 |
-| portfolio_coach | claude-main | deepseek-cheap | S6, 포지션당 1회 |
-| news_classify | deepseek-cheap | claude-main | S1.5 전처리(S2·S3 이전, 60건 1배치) |
+| event_digest | claude-main | codex | S3, 1회/일 |
+| sector_outlook | claude-main | codex | S4, 1회/일 |
+| committee | claude-main | codex | S4·S5, 종목당 1회 |
+| stock_report | claude-main | codex | S5, 종목당 1회 |
+| portfolio_coach | claude-main | codex | S6, 포지션당 1회 |
+| news_classify | claude-main | codex | S1.5 전처리(S2·S3 이전, 60건 1배치) |
 
 라우팅 테이블(llm_task_routing)에는 위 6종만 시드된다. profile_test는 라우팅을 거치지 않고 설정 페이지가 지정한 프로파일 id로 직접 호출(#21).
 

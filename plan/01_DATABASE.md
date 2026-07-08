@@ -35,6 +35,13 @@ CREATE TABLE llm_task_routing (
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE app_settings (
+  key        VARCHAR(80) PRIMARY KEY,           -- 예: 'llm_engine'
+  value      TEXT NOT NULL,                     -- llm_engine: claude|codex
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- 시드: ('llm_engine', 'claude') 1행. 전역 토글이 6개 LLM task 라우팅을 일괄 갱신한다.
+
 CREATE TABLE llm_call_logs (                    -- 비용/감사 추적
   id          BIGSERIAL PRIMARY KEY,
   task        VARCHAR(40) NOT NULL,

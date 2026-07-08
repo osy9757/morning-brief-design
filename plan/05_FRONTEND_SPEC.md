@@ -135,7 +135,9 @@ ECharts gauge(반원). 기본은 시장 전체 `brief.fear_greed`, 섹터 히트
 
 ## 7. 설정 `/settings` (요구 2)
 
+- **LLM 엔진**: admin 전용 섹션. Claude/Codex 세그먼트 토글을 표시하고 `GET /admin/llm-engine` 현재값을 "현재 엔진 Claude|Codex"로 보여준다. 클릭 시 `PUT /admin/llm-engine {"engine":"claude"|"codex"}`를 호출해 6개 task 라우팅을 일괄 전환하고 상태를 갱신한다. 각 엔진은 `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` 키 존재 여부에 따라 "키 설정됨" 또는 "키 없음(.env 필요)" 배지를 표시한다. 비admin에는 설정 페이지 자체가 노출되지 않는다.
 - **LLM 프로파일 카드 리스트**: provider·model·temperature 표시, [테스트] 버튼(→ /test, 결과 latency 토스트), 추가/수정 폼(provider 셀렉트 4종 + model 자유입력 + api_key_env 셀렉트).
+- `codex` 프로파일은 provider=openai, 기본 model=`gpt-5-codex`, api_key_env=`OPENAI_API_KEY`이며, model 입력은 설정 화면에서 저장 가능해야 한다(사용자가 실제 모델 id로 수정 가능).
 - **Task 라우팅 테이블**: 6 task 행(profile_test 제외, #21) × (기본 프로파일 셀렉트, fallback 셀렉트). 변경 즉시 PUT. profile_test는 프로파일 카드의 [테스트] 버튼이 선택 프로파일로 직접 호출.
 - **사용량**: 최근 30일 task별 토큰/호출수 바 차트.
 - **배치**: 마지막 실행 상태(stage_status 칩 8개 S1·S1.5·S2·S3·S4·S5·S6·S7), [데이터 새로고침] 버튼(확인 다이얼로그 → POST /batch/run → 진행 폴링, admin 전용 재수집). 당일 brief evidence(scope='brief') 다운로드 링크 목록 — market_inputs.json 등(#17).

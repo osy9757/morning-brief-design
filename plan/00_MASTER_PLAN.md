@@ -150,8 +150,8 @@ ANALYSIS_STALE_HOURS=6
 ANALYSIS_TRIGGER_DEBOUNCE_MIN=5
 
 # ── LLM (04 문서: DB llm_profiles가 우선, env는 키 보관용)
-ANTHROPIC_API_KEY=
-OPENAI_API_KEY=
+ANTHROPIC_API_KEY=      # Claude 전역 엔진(claude-main)
+OPENAI_API_KEY=         # Codex 전역 엔진(codex)
 DEEPSEEK_API_KEY=
 GEMINI_API_KEY=
 

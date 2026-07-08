@@ -164,9 +164,14 @@ action ∈ WAIT|SELL|PYRAMID|AVERAGE_DOWN|REBALANCE. REBALANCE 시 drift(=weight
 
 전 엔드포인트 admin 전용. 무인증 401, role!='admin' 403 `FORBIDDEN`.
 
+전역 엔진 토글은 사용자 결정에 따라 별도 admin 경로를 쓴다. 무인증/비admin 모두 403 `FORBIDDEN`.
+
+- `GET /admin/llm-engine` → `{"engine": "claude", "profiles": {"claude": {"id": 1, "name": "claude-main", "provider": "anthropic", "model": "claude-sonnet-5", "api_key_env": "ANTHROPIC_API_KEY", "has_api_key": false}, "codex": {"id": 4, "name": "codex", "provider": "openai", "model": "gpt-5-codex", "api_key_env": "OPENAI_API_KEY", "has_api_key": false}}}`
+- `PUT /admin/llm-engine` — body `{"engine": "claude"|"codex"}` → 같은 응답. 6개 라우팅 task(event_digest·sector_outlook·committee·stock_report·portfolio_coach·news_classify) 전체의 profile을 선택 엔진 프로파일로, fallback을 상대 엔진 프로파일로 일괄 UPDATE하고 `app_settings.llm_engine`을 갱신한다.
+
 - `GET /llm/profiles` → `[{"id", "name", "provider", "model", "api_key_env", "temperature", "max_tokens", "enabled"}]`
 - `POST /llm/profiles` / `PUT /llm/profiles/{id}` / `DELETE /llm/profiles/{id}` (라우팅에서 참조 중이면 409 `PROFILE_IN_USE`)
-- `GET /llm/routing` → `[{"task": "event_digest", "profile": "claude-main", "fallback_profile": "deepseek-cheap"}]` (6 task — profile_test 제외, #21)
+- `GET /llm/routing` → `[{"task": "event_digest", "profile": "claude-main", "fallback_profile": "codex"}]` (6 task — profile_test 제외, #21)
 - `PUT /llm/routing/{task}` — body `{"profile_id": 2, "fallback_profile_id": 1}`
 - `POST /llm/profiles/{id}/test` → 소형 프롬프트 1회 호출 `{"ok": true, "latency_ms": 812, "sample": "…"}`
 - `GET /llm/usage?days=30` → task별 호출수/토큰 합계 (llm_call_logs 집계)
@@ -186,4 +191,4 @@ action ∈ WAIT|SELL|PYRAMID|AVERAGE_DOWN|REBALANCE. REBALANCE 시 drift(=weight
 | 메인 `/` | GET /brief/today (1회로 전부) |
 | 종목 `/stocks/[ticker]` | GET /stocks/{t}/analysis + evidence 링크 |
 | 포트폴리오 `/portfolio` | GET /portfolio + GET /portfolio/signals |
-| 설정 `/settings` | /llm/* + /batch/* |
+| 설정 `/settings` | /admin/llm-engine + /llm/* + /batch/* |
