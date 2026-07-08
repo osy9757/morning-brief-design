@@ -61,11 +61,26 @@
                  "conviction": 8, "verdict": "BUY", "one_liner": "…",
                  "entry_hint": {"zone_low": 178.2, "zone_high": 184.5},
                  "entry_rationale": "…LLM이 지지·이평·ATR로 판단한 근거 1~2문장(수식 폴백 시 그 표기)…"}]
+  },
+  "kr": {
+    "indices": [{"symbol": "^KS11", "label": "KOSPI", "last": 3294.12, "change_pct_1d": 0.43, "spark_30d": [3200.0, 3294.12], "is_stale": false}],
+    "regime": {"kr_regime": "RISK_ON"},
+    "fear_greed": {"score": 58.4, "label": "Greed", "factors": {"F1": 62.0, "F4": 55.2, "F5": 58.0}},
+    "sectors": [{"etf": "091160", "name": "반도체", "ret_1d": 1.9, "ret_1w": 2.1, "ret_1m": 5.3, "ret_3m": 9.8, "ret_ytd": 14.2,
+      "rs_spy_1m": 1.9, "above_ma50": true, "above_ma200": true, "vol_20d": 18.3, "rsi_14": 62.1, "volume_ratio": 1.31,
+      "flow_score": 1.8, "fear_greed": {"score": 76.66, "label": "Extreme Greed"}, "trend": "UP"}],
+    "heatmap": [{"name": "반도체", "etf": "091160", "size": 10, "value": 1.9}],
+    "money_flow": {"sector_flows": [{"etf": "091160", "name": "반도체", "flow_score": 1.8, "rs_spy_5d": 1.1, "volume_ratio": 1.31}],
+      "asset_flows": [{"symbol": "069500", "label": "대형주", "ret_5d": 1.2, "ret_20d": 3.4, "volume_ratio": 1.05, "rotation_rank": 1}],
+      "inflow_top": ["대형주", "성장/중소형", "금"], "outflow_top": ["채권", "달러", "금"]},
+    "recommendations": {"sectors": [], "stocks": []},
+    "events": [],
+    "market_wrap": ""
   }
 }
 ```
 
-주: `generated_at`은 batch_runs.finished_at 조인, `fear_greed.history_30d`는 fear_greed_history 조립 필드(daily_briefs 저장 컬럼 아님, 01 #20). `//`로 시작하는 키는 문서용 주석이며 실제 응답에 없음.
+주: `generated_at`은 batch_runs.finished_at 조인, `fear_greed.history_30d`는 fear_greed_history 조립 필드(daily_briefs 저장 컬럼 아님, 01 #20). US 홈 데이터는 기존처럼 최상위 필드에 유지하고, 국장 홈 토글용 데이터는 nullable `kr` 객체로 추가한다. `//`로 시작하는 키는 문서용 주석이며 실제 응답에 없음.
 404 `BRIEF_NOT_FOUND` (아직 첫 배치 전).
 
 ## 3. 브리핑 보조

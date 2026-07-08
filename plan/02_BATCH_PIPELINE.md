@@ -76,6 +76,8 @@ Factor는 각각 서로 다른 유지되는 FRED 시리즈에 의존한다(USSLI
 대상(순서 고정, 총 12항목): S&P500(^GSPC), 나스닥(^IXIC), 나스닥100(^NDX), 다우(^DJI), **S&P500 선물(ES=F), 나스닥100 선물(NQ=F)**, VIX(^VIX), KOSPI(^KS11), KOSDAQ(^KQ11), USD/KRW(KRW=X), BTC(BTC-USD), **미국채 10Y(DGS10)**. (YM=F 다우선물은 시드·수집하되 스트립 미표시 — S&P/나스닥 선물로 시간외 방향은 충분.)
 각 항목 공통: `{symbol, label, last, change_pct_1d, spark_30d:[값×30], is_stale}`.
 
+**국장 홈 토글용 지수 스트립(additive)**: `daily_briefs.kr.indices`에는 KOSPI(`^KS11`), KOSDAQ(`^KQ11`), KOSPI200(`069500` KODEX 200), KOSDAQ150(`229200` KODEX 코스닥150) 4개를 같은 shape로 저장한다. US 최상위 `indices` 12개 계약은 유지한다.
+
 - **선물 항목(ES=F/NQ=F, #1)**: change_pct_1d = 선물 최신/선물 전일종가 − 1(%). 05 S-A에서 label에 "선물" 표기해 현물과 구분. spark_30d = prices_daily close 최근 30.
 - **미국채 10Y 항목(DGS10, #2)**: `symbol="DGS10"`(stocks 유니버스에 없어 05 S-A 클릭 네비게이션은 무동작), `label="미국채 10Y"`, `last`=macro_series DGS10 value 최신값(%), `spark_30d`=macro_series value 최근 30 관측치(가격 close가 아니라 value가 스파크라인 y). 등락은 % 착색이 무의미하므로 별도 필드 `change_bp_1d = (value − 전일 value)×100`(bp)을 두고 05 S-A에서 이 항목만 "+5bp/−3bp"로 착색(다른 항목의 change_pct_1d 규칙과 분리). `change_pct_1d`도 스키마 일관성상 `(value/전일 value − 1)×100`로 채우되 렌더에는 미사용.
 - **is_stale(전 항목)**: 항목의 최신 관측일 < 스트립 공통 기준 거래일(주말·휴장 시 마지막 거래일) → true. FRED DGS10은 익영업일 갱신이라 06:30 배치 시 D-1이 최신일 수 있음.
@@ -92,6 +94,8 @@ Factor는 각각 서로 다른 유지되는 FRED 시리즈에 의존한다(USSLI
 
 `score = mean(F1..F5)`. 라벨: ≤25 Extreme Fear, ≤45 Fear, ≤55 Neutral, ≤75 Greed, >75 Extreme Greed. → fear_greed_history UPSERT.
 
+**KR F&G(additive)**: `daily_briefs.kr.fear_greed`는 동일 factor 구조를 쓰되 입력을 KR로 치환한다. F1=KOSPI(`^KS11`) 모멘텀, F4=KODEX 200(`069500`) 20일 수익−KR 채권 ETF(`471230`) 20일 수익, F5=KR 섹터 ETF 중 종가>50일MA 비율. KR 전용 변동성/신용 프록시가 시드로 확정되지 않은 factor는 결손으로 보고 나머지 factor 평균으로 재분배한다. // TODO(claude): KR F2 변동성·F3 신용 프록시를 공식 시드 티커로 확정할지 결정.
+
 ### S2.4 섹터 추이 (요구 3 — 중급자용 지표 세트 고정)
 
 대상: SPDR 11종 `XLK 기술, XLF 금융, XLE 에너지, XLV 헬스케어, XLY 임의소비재, XLP 필수소비재, XLI 산업재, XLU 유틸리티, XLB 소재, XLRE 리츠, XLC 커뮤니케이션`.
@@ -100,10 +104,14 @@ Factor는 각각 서로 다른 유지되는 FRED 시리즈에 의존한다(USSLI
 히트맵 노드: `{name, etf, size: 시가총액 가중치(고정 상수표*), value: ret_1d}` (색은 value 파생이므로 저장 필드 아님 — 05 S-D-1이 value로 착색. 03 §2·05와 필드 일치).
 *시총 가중 고정 상수(연 1회 갱신): XLK 32, XLF 13, XLV 11, XLY 11, XLC 9, XLI 8, XLP 6, XLE 3, XLU 3, XLB 2, XLRE 2.
 
+**KR 섹터(additive)**: `daily_briefs.kr.sectors/heatmap`은 같은 지표 shape를 유지하고, 대상은 `091160 반도체, 091170 은행, 091180 자동차, 305720 2차전지, 102970 증권, 117700 건설, 266420 헬스케어, 117680 철강, 117460 에너지화학, 266410 필수소비재`다. RS 기준은 SPY 대신 KOSPI(`^KS11`)이고, heatmap size는 MVP에서 균등 10으로 둔다.
+
 ### S2.5 자금 흐름 (요구 6)
 
 **섹터 흐름**: 섹터 i의 `flow_score = clip(z(volume_ratio_i), 0, 3) × sign(rs_spy_5d_i)` → -3~+3 (#29 부호 오류 수정: 거래대금이 평소 이하일 때 z<0을 0으로 클립해 방향 반전을 막는다). 해석: 거래대금이 평소 대비 몰릴 때만(z>0) 방향을 부여 — 몰리며 시장을 이기면 유입(+), 몰리며 지면 매도세(−), 평소 이하 거래대금이면 0(중립).
 **자산군 로테이션**: 9종 심볼→라벨 고정 매핑표(03·05 동일 문자열 사용): `SPY=미국 대형주, QQQ=성장주, IWM=소형주, TLT=장기채, IEF=중기채, GLD=금, UUP=달러, HYG=하이일드, BTC-USD=크립토`. 각 `ret_5d, ret_20d, volume_ratio` → `rotation_rank` = ret_20d 내림차순 순위. 산출: `{asset_flows: [{symbol, label, ret_5d, ret_20d, volume_ratio, rotation_rank}×9], inflow_top: 상위3 label, outflow_top: 하위3 label}`.
+
+**KR 자산군 로테이션(additive)**: `daily_briefs.kr.money_flow.asset_flows`는 `069500=대형주, 229200=성장/중소형, 471230=채권, 132030=금, 261240=달러` 5종을 같은 산식으로 계산한다.
 
 ### S2.6 종목 팩터 (분석 대상 = source='seed' ∪ 보유 종목 ∪ 최근 S4 게시 종목)
 
