@@ -96,6 +96,7 @@ CREATE TABLE disclosures (                       -- 국내 공시 (거버넌스 
 CREATE TABLE news (
   id BIGSERIAL PRIMARY KEY,
   stock_id BIGINT REFERENCES stocks(id),         -- NULL = 시장 전반 뉴스
+  market VARCHAR(4) NOT NULL DEFAULT 'US',        -- US|KR, event_digest 시장별 입력 분리
   published_at TIMESTAMPTZ NOT NULL,
   source VARCHAR(50), title TEXT NOT NULL, url TEXT, summary TEXT,
   sentiment NUMERIC(4,3),                        -- -1~1, 소스 제공 시

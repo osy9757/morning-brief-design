@@ -37,7 +37,8 @@ S1 수집
 | 미국 실적 캘린더 | yfinance `Ticker.get_earnings_dates(limit=8)` | 보유∪추천 유니버스, 향후 14일 → daily_briefs.earnings_calendar `[{ticker,date,when:BMO|AMC}]` (#12) |
 | 경제지표 캘린더 | 로컬 `data/econ_calendar_2026.json`(FOMC·CPI·PCE·고용·GDP, 연 1회 수동 갱신) | 향후 7일 → daily_briefs.upcoming_events `[{date,name,importance}]` (#13) |
 | 매크로 | FRED CSV `https://fred.stlouisfed.org/graph/fredgraph.csv?id={SID}` | T10Y3M, T10Y2Y, SAHMREALTIME, BAMLH0A0HYM2, NFCI, CFNAIMA3, PERMIT, DGS10 → macro_series (USSLIND 폐지 교체, #9/#2/#38) |
-| 시장/종목 뉴스 | Finnhub `/news?category=general` + `/company-news`(보유·추천 후보, 최근 7일) | → news (url UNIQUE로 dedupe). **sentiment는 소스 미제공** → 수집 직후 **S1.5 news_classify**(04 §4.6)가 -1~1 산출해 news.sentiment 채움 (S2.6·S5 소비, #7) |
+| 시장/종목 뉴스(US) | Finnhub `/news?category=general` + `/company-news`(보유·추천 후보, 최근 7일) | → news(market='US', url UNIQUE로 dedupe). **sentiment는 소스 미제공** → 수집 직후 **S1.5 news_classify**(04 §4.6)가 -1~1 산출해 news.sentiment 채움 (S2.6·S5 소비, #7) |
+| 국내 증시 뉴스(KR) | Google News RSS(무키) `https://news.google.com/rss/search?q={query}&hl=ko&gl=KR&ceid=KR:ko`, query=`코스피`,`코스닥`,`국내증시` | → news(market='KR', url UNIQUE dedupe, 최대 약 40건). RSS `item`의 title/link/pubDate/source를 저장하고, 네트워크·파싱 실패는 빈 리스트로 graceful 처리 |
 | 국내 가격 | FinanceDataReader(무키) 우선, yfinance `.KS`/`.KQ` 폴백 | 배치 핵심 유니버스 중 KR 종목만 → prices_daily. 검색용 `source='krx'` bulk 종목은 온디맨드 분석에서 즉석 수집 |
 | 국내 공시 | OpenDART `list.json` (최근 7일, 보유 국내 종목) | → disclosures, risk_tags는 제목 정규식 매핑* |
 
@@ -135,9 +136,10 @@ signal: total≥70→BUY, ≥55→HOLD, ≥40→REDUCE, <40→EXIT. 단 total≥
 ## S3. 오늘의 이벤트 다이제스트 (요구 4 전반, LLM task=event_digest)
 
 0. 전처리 결과 소비: news_classify는 S1.5에서 이미 실행됨(여기서 재실행 아님) — NOISE·relevance 0 뉴스는 입력에서 제외.
-1. 입력: 최근 24h 시장 뉴스(정제 후) + 매크로 지표 변화(레짐 factor·implied_ffr 전일 대비) + 선물(ES=F/NQ=F) 방향 + VIX/지수 급변(|1d|>1.5%) + 보유 종목 뉴스 + `upcoming_events`(경제 캘린더 향후 7일, #13) + `earnings_calendar`(#12).
-2. LLM 1회 호출(04 §4.1)로 **이벤트 카드 4~8장 + market_wrap** 생성. 카드: `{headline(≤40자), body(2~3문장, 근거 문장 끝에 각주 [1][2], #35), category: MACRO|EARNINGS|GEOPOLITICS|SECTOR|CRYPTO|KR, importance: 1~3, source_urls[], related_tickers[]}`. `market_wrap`: 하루 총평 2~3문장(요구 '총정리', #15) — 입력 숫자만 인용, daily_briefs.market_wrap에 저장.
-3. 검증: source_urls는 입력 뉴스 url 집합의 부분집합, body의 각주 [n]은 source_urls 인덱스(1-based) 범위 내여야 함(위반 카드 폐기, #35). 카드 0장이면 events degraded(market_wrap은 별도 — 산출되면 유지).
+1. 입력(US): 최근 24h news.market='US' 시장 뉴스(정제 후) + 매크로 지표 변화(레짐 factor·implied_ffr 전일 대비) + 선물(ES=F/NQ=F) 방향 + VIX/지수 급변(|1d|>1.5%) + 보유 종목 뉴스 + `upcoming_events`(경제 캘린더 향후 7일, #13) + `earnings_calendar`(#12).
+2. 입력(KR additive): 최근 24h news.market='KR' Google News RSS 국내 증시 뉴스(정제 후) + `daily_briefs.kr.regime` + `daily_briefs.kr.indices` 급변 항목 + 공통 일정. 같은 `event_digest` task를 별도 1회 호출한다.
+3. LLM 호출 결과로 **이벤트 카드 4~8장 + market_wrap** 생성. US 결과는 `daily_briefs.events`와 `daily_briefs.market_wrap`에 저장하고, KR 결과는 `daily_briefs.kr.events`와 `daily_briefs.kr.market_wrap`에 저장한다. 카드: `{headline(≤40자), body(2~3문장, 근거 문장 끝에 각주 [1][2], #35), category: MACRO|EARNINGS|GEOPOLITICS|SECTOR|CRYPTO|KR, importance: 1~3, source_urls[], related_tickers[]}`. `market_wrap`: 하루 총평 2~3문장(요구 '총정리', #15) — 입력 숫자만 인용.
+4. 검증: source_urls는 해당 시장 입력 뉴스 url 집합의 부분집합, body의 각주 [n]은 source_urls 인덱스(1-based) 범위 내여야 함(위반 카드 폐기, #35). 카드 0장이면 해당 시장 events degraded(market_wrap은 별도 — 산출되면 유지). LLM 키가 없으면 US/KR 이벤트 카드는 빈 값으로 degraded 처리하되 KR RSS 수집 자체는 계속 동작한다.
 
 ## S4. 섹터/종목 추천 (요구 4 후반)
 

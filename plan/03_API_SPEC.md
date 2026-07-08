@@ -80,7 +80,7 @@
 }
 ```
 
-주: `generated_at`은 batch_runs.finished_at 조인, `fear_greed.history_30d`는 fear_greed_history 조립 필드(daily_briefs 저장 컬럼 아님, 01 #20). US 홈 데이터는 기존처럼 최상위 필드에 유지하고, 국장 홈 토글용 데이터는 nullable `kr` 객체로 추가한다. `//`로 시작하는 키는 문서용 주석이며 실제 응답에 없음.
+주: `generated_at`은 batch_runs.finished_at 조인, `fear_greed.history_30d`는 fear_greed_history 조립 필드(daily_briefs 저장 컬럼 아님, 01 #20). US 홈 데이터는 기존처럼 최상위 필드에 유지하고, 국장 홈 토글용 데이터는 nullable `kr` 객체로 추가한다. `kr.events`와 `kr.market_wrap`은 news.market='KR' Google News RSS 입력으로 별도 event_digest가 채운다. `//`로 시작하는 키는 문서용 주석이며 실제 응답에 없음.
 404 `BRIEF_NOT_FOUND` (아직 첫 배치 전).
 
 ## 3. 브리핑 보조
