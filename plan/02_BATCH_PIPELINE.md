@@ -34,6 +34,7 @@ S1 수집
 | 지수/ETF/종목/선물 일봉 | yfinance `download(tickers, period="2y", auto_adjust=False)` | **배치 핵심 유니버스**(`source='seed'` ∪ 보유 포지션 ∪ 최근 S4 게시 종목, 선물 ES=F NQ=F YM=F ZQ=F 포함) → prices_daily UPSERT. `source='krx'` 검색용 bulk 종목은 보유/추천 전까지 제외 |
 | 보유 종목 시간외 최종가 | yfinance `Ticker.info`의 postMarketPrice/preMarketPrice(없으면 null) | 보유 종목만 → S6 after_hours_change_pct (#34) |
 | 미국 펀더멘털 | yfinance `Ticker.info` + `quarterly_financials` | 배치 핵심 유니버스 중 미국 종목만 → financials |
+| 미국 공시 | SEC EDGAR `data.sec.gov/submissions` + Archives 문서(**무키, User-Agent 필수**) | 최신 10-K/10-Q/8-K에서 MD&A(Item 7/2)·Risk Factors(Item 1A) 핵심 섹션만 추출 |
 | 미국 실적 캘린더 | yfinance `Ticker.get_earnings_dates(limit=8)` | 보유∪추천 유니버스, 향후 14일 → daily_briefs.earnings_calendar `[{ticker,date,when:BMO|AMC}]` (#12) |
 | 경제지표 캘린더 | 로컬 `data/econ_calendar_2026.json`(FOMC·CPI·PCE·고용·GDP, 연 1회 수동 갱신) | 향후 7일 → daily_briefs.upcoming_events `[{date,name,importance}]` (#13) |
 | 매크로 | FRED CSV `https://fred.stlouisfed.org/graph/fredgraph.csv?id={SID}` | T10Y3M, T10Y2Y, SAHMREALTIME, BAMLH0A0HYM2, NFCI, CFNAIMA3, PERMIT, DGS10 → macro_series (USSLIND 폐지 교체, #9/#2/#38) |
@@ -155,13 +156,14 @@ signal: total≥70→BUY, ≥55→HOLD, ≥40→REDUCE, <40→EXIT. 단 total≥
 tabs metrics·거버넌스 등급은 S2.6에서 선계산됨(#22·#23). S5는 종목별 stock_analyses 1행 생성:
 - LLM task=stock_report(04 §4.2)로 6개 탭 텍스트 생성(**overview 탭 없음** — UI '종합' 탭은 top-level score/committee로 조립, #22).
 - **committee 채움(재감사 H2)**: S4에서 이미 committee를 받은 종목(S4 게시 후보)은 그 결과 재사용, **S4 committee가 없는 종목(보유-only·온디맨드 대상)은 S5에서 task=committee 1회 호출**해 stock_analyses.committee(NOT NULL)를 채운다.
-- tabs.fundamental: value 지표 + financials 최근 8분기 시계열
-- tabs.governance: 등급(HIGH/MID/LOW) + 항목. 국내=disclosures risk_tags 목록, 미국=회사 뉴스 중 sentiment<-0.3(news_classify 산출, #7) + 8-K성 키워드(regex: `SEC|lawsuit|investigation|offering|dilution|insider`) 필터 목록 → 등급: 건수 ≥3 HIGH, 1~2 MID, 0 LOW
+- filing_digest: 최신 공시·보고서 핵심 섹션(US=MD&A·Risk Factors, KR=사업위험·지배구조·사업개요)을 LLM task=filing_digest로 요약한다. 입력은 섹션별 N자 truncate 텍스트만 사용하며 원문 전체를 주입하지 않는다. 출력은 `{business_summary, risk_summary, governance_summary, sources}`이며 LLM 키/섹션이 없으면 빈 요약 degraded.
+- tabs.fundamental: value 지표 + financials 최근 8분기 시계열 + financials.extras의 확장 비율(부채비율·유동비율·매출총이익률·영업이익률·순이익률·FCF마진)
+- tabs.governance: 등급(HIGH/MID/LOW) + 항목 + filing_digest.governance_summary. 국내=disclosures risk_tags 목록, 미국=회사 뉴스 중 sentiment<-0.3(news_classify 산출, #7) + 8-K성 키워드(regex: `SEC|lawsuit|investigation|offering|dilution|insider`) 필터 목록 → 등급: 건수 ≥3 HIGH, 1~2 MID, 0 LOW
 - tabs.capability: quality_growth 지표(매출/EPS 성장, ROE, 마진 추이 4분기) + R&D 비중(있으면)
 - tabs.consensus: Finnhub 실적 서프라이즈(`/stock/earnings`) + 투자의견 분포(`/stock/recommendation`) + 목표주가(`/stock/price-target`) + `upside_pct=(targetMean/last-1)*100`; FINNHUB_KEY 미설정 또는 KR 6자리 종목은 빈 배열/객체와 degraded 안내 텍스트 허용. 숫자는 엔진이 수집·계산하고 LLM은 해설만 작성한다.
 - tabs.technical: technical detail 전부(ma20/50/200·ATR14·RSI·52주고점 대비 등) + 1년 가격/MA 시리즈
 - tabs.macro: 현재 Phase(국내는 kr_regime), 종목 macro_fit, 소속 섹터 rs/flow
-- evidence 동결: `data/evidence/{date}/{ticker}/` 에 `prices_1y.csv, factor_inputs.json, financials.json, news_used.json, disclosures.json, llm_io.json` 저장 + evidence_files(scope='stock') 등록 (요구 7 "근거 다운로드")
+- evidence 동결: `data/evidence/{date}/{ticker}/` 에 `prices_1y.csv, factor_inputs.json, financials.json, news_used.json, disclosures.json, filings.json(원 섹션+요약), llm_io.json` 저장 + evidence_files(scope='stock') 등록 (요구 7 "근거 다운로드")
 
 ## S6. 포트폴리오 장전 시그널 (요구 8 — 전부 규칙, LLM은 해설만. 보유 종목 한정, 신규 매수는 S4 recommendations, #4)
 

@@ -107,10 +107,15 @@
     "pm": {"verdict": "BUY", "conviction": 8, "summary": "…"}
   },
   "tabs": {
-    "fundamental": {"metrics": {"per": 42.1, "fwd_per": 33.0, "pbr": 21.2, "dividend_yield": 0.03},
+    "fundamental": {"metrics": {"per": 42.1, "fwd_per": 33.0, "pbr": 21.2, "dividend_yield": 0.03,
+                                "debt_to_equity": 11.43, "current_ratio": 3.0, "gross_margin": 62.0,
+                                "operating_margin": 43.24, "net_margin": 37.84, "fcf_margin": 31.08},
                      "quarters": [{"period": "2026Q1", "revenue": 44100000000, "net_income": 22100000000, "eps": 0.89}],
                      "llm_text": "…해설…"},
-    "governance": {"grade": "LOW", "items": [{"date": "2026-07-01", "title": "…", "tag": "소송", "url": "…"}], "llm_text": "…"},
+    "governance": {"grade": "LOW", "items": [{"date": "2026-07-01", "title": "…", "tag": "소송", "url": "…"}],
+                   "filing_digest": {"business_summary": "…", "risk_summary": "…", "governance_summary": "…",
+                                     "sources": [{"filing_type": "10-Q", "date": "2026-06-30", "url": "…"}]},
+                   "llm_text": "…"},
     "capability": {"metrics": {"revenue_yoy": 62.1, "eps_yoy": 71.3, "roe": 88.2, "op_margin_trend": [61.1, 62.4, 64.0, 64.8], "rnd_ratio": 9.1}, "llm_text": "…"},
     "consensus": {"earnings_surprises": [{"period": "2026-04-30", "actual": 0.89, "estimate": 0.82, "surprise_pct": 8.54}],
                   "recommendation": {"period": "2026-07-01", "strong_buy": 5, "buy": 4, "hold": 3, "sell": 0, "strong_sell": 0, "buy_total": 9, "analyst_total": 12},
@@ -167,11 +172,11 @@ action ∈ WAIT|SELL|PYRAMID|AVERAGE_DOWN|REBALANCE. REBALANCE 시 drift(=weight
 전역 엔진 토글은 사용자 결정에 따라 별도 admin 경로를 쓴다. 무인증/비admin 모두 403 `FORBIDDEN`.
 
 - `GET /admin/llm-engine` → `{"engine": "claude", "profiles": {"claude": {"id": 1, "name": "claude-main", "provider": "anthropic", "model": "claude-sonnet-5", "api_key_env": "ANTHROPIC_API_KEY", "has_api_key": false}, "codex": {"id": 4, "name": "codex", "provider": "openai", "model": "gpt-5-codex", "api_key_env": "OPENAI_API_KEY", "has_api_key": false}}}`
-- `PUT /admin/llm-engine` — body `{"engine": "claude"|"codex"}` → 같은 응답. 6개 라우팅 task(event_digest·sector_outlook·committee·stock_report·portfolio_coach·news_classify) 전체의 profile을 선택 엔진 프로파일로, fallback을 상대 엔진 프로파일로 일괄 UPDATE하고 `app_settings.llm_engine`을 갱신한다.
+- `PUT /admin/llm-engine` — body `{"engine": "claude"|"codex"}` → 같은 응답. 7개 라우팅 task(event_digest·sector_outlook·committee·stock_report·filing_digest·portfolio_coach·news_classify) 전체의 profile을 선택 엔진 프로파일로, fallback을 상대 엔진 프로파일로 일괄 UPDATE하고 `app_settings.llm_engine`을 갱신한다.
 
 - `GET /llm/profiles` → `[{"id", "name", "provider", "model", "api_key_env", "temperature", "max_tokens", "enabled"}]`
 - `POST /llm/profiles` / `PUT /llm/profiles/{id}` / `DELETE /llm/profiles/{id}` (라우팅에서 참조 중이면 409 `PROFILE_IN_USE`)
-- `GET /llm/routing` → `[{"task": "event_digest", "profile": "claude-main", "fallback_profile": "codex"}]` (6 task — profile_test 제외, #21)
+- `GET /llm/routing` → `[{"task": "event_digest", "profile": "claude-main", "fallback_profile": "codex"}]` (7 task — profile_test 제외, #21)
 - `PUT /llm/routing/{task}` — body `{"profile_id": 2, "fallback_profile_id": 1}`
 - `POST /llm/profiles/{id}/test` → 소형 프롬프트 1회 호출 `{"ok": true, "latency_ms": 812, "sample": "…"}`
 - `GET /llm/usage?days=30` → task별 호출수/토큰 합계 (llm_call_logs 집계)

@@ -214,5 +214,5 @@ volumes: { mb_pgdata: {} }
 | 01_DATABASE.md | 전체 DDL (테이블 21개) |
 | 02_BATCH_PIPELINE.md | 06:30 파이프라인 S1~S7, 모든 산식·시그널 규칙 |
 | 03_API_SPEC.md | REST 전 엔드포인트 요청/응답 JSON |
-| 04_LLM_SPEC.md | LLM 변수화 구조 + task 6종 프롬프트 원문 + 출력 스키마 (라우팅 6종 + profile_test는 라우팅 밖) |
+| 04_LLM_SPEC.md | LLM 변수화 구조 + task 7종 프롬프트 원문 + 출력 스키마 (라우팅 7종 + profile_test는 라우팅 밖) |
 | 05_FRONTEND_SPEC.md | TOSS 디자인 토큰, 페이지/컴포넌트 명세 |

@@ -114,9 +114,9 @@ ECharts gauge(반원). 기본은 시장 전체 `brief.fear_greed`, 섹터 히트
 | 탭 | 구성 |
 |---|---|
 | 종합 | 점수 링 + 레이더 + PM summary + 6개 탭 llm_text 첫 문장 모음(각 탭 링크) — tabs.overview 키 없음(#22) |
-| 펀더멘탈 | metrics 4칩(PER·FwdPER·PBR·배당) + 8분기 매출/순이익 이중 바 차트 + EPS 라인 + llm_text |
+| 펀더멘탈 | metrics 기본 4칩(PER·FwdPER·PBR·배당) + 확장 6칩(부채비율·유동비율·매출총이익률·영업이익률·순이익률·FCF마진) + 8분기 매출/순이익 이중 바 차트 + EPS 라인 + llm_text |
 | 실적·컨센서스 | 실적 서프라이즈 표/바(실제 vs 예상 EPS·서프라이즈%) + 투자의견 분포(매수/중립/매도 스택 바 또는 칩) + 목표주가(평균·최고·최저 + 상승여력% 착색) + llm_text. 데이터 없으면 "컨센서스 데이터 없음(Finnhub 키 필요·미국 종목만)" 안내 |
-| 거버넌스 | grade 칩(HIGH --danger/MID --warn/LOW --success) + items 타임라인(date·tag 칩·title·원문 링크) + llm_text |
+| 거버넌스 | grade 칩(HIGH --danger/MID --warn/LOW --success) + 공시·보고서 요약(filing_digest.governance_summary/risk_summary/business_summary + 출처 링크) + items 타임라인(date·tag 칩·title·원문 링크) + llm_text |
 | 케파빌리티 | 성장 지표 칩(매출YoY·EPS YoY·ROE·R&D비중) + 마진 추이 4분기 라인 + llm_text |
 | 테크니컬 | 1년 캔들 대신 **종가+MA50+MA200 라인 차트**(ECharts, 고정 결정) + metrics 칩(RSI·MA괴리·52주고점比·변동성) + llm_text |
 | 매크로 | Phase 칩 + macro_fit 게이지 + 소속 섹터 RS/flow 재표기 + llm_text |
@@ -135,10 +135,10 @@ ECharts gauge(반원). 기본은 시장 전체 `brief.fear_greed`, 섹터 히트
 
 ## 7. 설정 `/settings` (요구 2)
 
-- **LLM 엔진**: admin 전용 섹션. Claude/Codex 세그먼트 토글을 표시하고 `GET /admin/llm-engine` 현재값을 "현재 엔진 Claude|Codex"로 보여준다. 클릭 시 `PUT /admin/llm-engine {"engine":"claude"|"codex"}`를 호출해 6개 task 라우팅을 일괄 전환하고 상태를 갱신한다. 각 엔진은 `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` 키 존재 여부에 따라 "키 설정됨" 또는 "키 없음(.env 필요)" 배지를 표시한다. 비admin에는 설정 페이지 자체가 노출되지 않는다.
+- **LLM 엔진**: admin 전용 섹션. Claude/Codex 세그먼트 토글을 표시하고 `GET /admin/llm-engine` 현재값을 "현재 엔진 Claude|Codex"로 보여준다. 클릭 시 `PUT /admin/llm-engine {"engine":"claude"|"codex"}`를 호출해 7개 task 라우팅을 일괄 전환하고 상태를 갱신한다. 각 엔진은 `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` 키 존재 여부에 따라 "키 설정됨" 또는 "키 없음(.env 필요)" 배지를 표시한다. 비admin에는 설정 페이지 자체가 노출되지 않는다.
 - **LLM 프로파일 카드 리스트**: provider·model·temperature 표시, [테스트] 버튼(→ /test, 결과 latency 토스트), 추가/수정 폼(provider 셀렉트 4종 + model 자유입력 + api_key_env 셀렉트).
 - `codex` 프로파일은 provider=openai, 기본 model=`gpt-5-codex`, api_key_env=`OPENAI_API_KEY`이며, model 입력은 설정 화면에서 저장 가능해야 한다(사용자가 실제 모델 id로 수정 가능).
-- **Task 라우팅 테이블**: 6 task 행(profile_test 제외, #21) × (기본 프로파일 셀렉트, fallback 셀렉트). 변경 즉시 PUT. profile_test는 프로파일 카드의 [테스트] 버튼이 선택 프로파일로 직접 호출.
+- **Task 라우팅 테이블**: 7 task 행(profile_test 제외, #21) × (기본 프로파일 셀렉트, fallback 셀렉트). 변경 즉시 PUT. profile_test는 프로파일 카드의 [테스트] 버튼이 선택 프로파일로 직접 호출.
 - **사용량**: 최근 30일 task별 토큰/호출수 바 차트.
 - **배치**: 마지막 실행 상태(stage_status 칩 8개 S1·S1.5·S2·S3·S4·S5·S6·S7), [데이터 새로고침] 버튼(확인 다이얼로그 → POST /batch/run → 진행 폴링, admin 전용 재수집). 당일 brief evidence(scope='brief') 다운로드 링크 목록 — market_inputs.json 등(#17).
 

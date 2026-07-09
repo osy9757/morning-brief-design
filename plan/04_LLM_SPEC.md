@@ -1,6 +1,6 @@
 # 04. LLM 명세 — 변수화 구조 + task 프롬프트 (요구 2·4·7·8)
 
-task 총 7종 중 **라우팅 대상은 6종**(event_digest, sector_outlook, committee, stock_report, portfolio_coach, news_classify). profile_test는 라우팅 테이블 밖 — 설정 페이지에서 선택한 프로파일 id를 직접 호출한다(#21).
+task 총 8종 중 **라우팅 대상은 7종**(event_digest, sector_outlook, committee, stock_report, filing_digest, portfolio_coach, news_classify). profile_test는 라우팅 테이블 밖 — 설정 페이지에서 선택한 프로파일 id를 직접 호출한다(#21).
 
 ## 1. 원칙 (vibe-investing 철학 + 진입 타점 예외)
 
@@ -37,7 +37,7 @@ async def call(task: str, payload: dict, out_schema: type[BaseModel]) -> BaseMod
 | codex | openai/gpt-5-codex | 전역 엔진 Codex. 설정 화면에서 model 값을 자유 입력으로 수정 가능 |
 
 전역 엔진 상태는 `app_settings`의 `key='llm_engine'`, `value='claude'|'codex'` 1행에 저장한다. 기본값은 `claude`다.
-`PUT /admin/llm-engine`은 아래 6개 task 전체를 선택 엔진 프로파일로, fallback을 상대 엔진 프로파일로 일괄 UPDATE한다.
+`PUT /admin/llm-engine`은 아래 7개 task 전체를 선택 엔진 프로파일로, fallback을 상대 엔진 프로파일로 일괄 UPDATE한다.
 
 | task | 초기 profile | fallback | 호출 시점 |
 |---|---|---|---|
@@ -45,10 +45,11 @@ async def call(task: str, payload: dict, out_schema: type[BaseModel]) -> BaseMod
 | sector_outlook | claude-main | codex | S4, 1회/일 |
 | committee | claude-main | codex | S4·S5, 종목당 1회 |
 | stock_report | claude-main | codex | S5, 종목당 1회 |
+| filing_digest | claude-main | codex | S5, 종목당 1회(공시 섹션 있을 때) |
 | portfolio_coach | claude-main | codex | S6, 포지션당 1회 |
 | news_classify | claude-main | codex | S1.5 전처리(S2·S3 이전, 60건 1배치) |
 
-라우팅 테이블(llm_task_routing)에는 위 6종만 시드된다. profile_test는 라우팅을 거치지 않고 설정 페이지가 지정한 프로파일 id로 직접 호출(#21).
+라우팅 테이블(llm_task_routing)에는 위 7종만 시드된다. profile_test는 라우팅을 거치지 않고 설정 페이지가 지정한 프로파일 id로 직접 호출(#21).
 
 ## 3. 공통 시스템 프롬프트 (전 task 앞부분에 고정 삽입)
 
@@ -92,6 +93,7 @@ async def call(task: str, payload: dict, out_schema: type[BaseModel]) -> BaseMod
 [점수] {score.breakdown + total + signal}
 [펀더멘탈] {fundamental.metrics + quarters 8분기}
 [거버넌스] {governance.items + grade}
+[공시·보고서 요약] {filing_digest}
 [케파빌리티] {capability.metrics}
 [테크니컬] {technical.metrics}
 [매크로] {macro: phase, macro_fit, 섹터 rs/flow}
@@ -107,6 +109,21 @@ async def call(task: str, payload: dict, out_schema: type[BaseModel]) -> BaseMod
 ```
 
 출력: `{"fundamental": str, "governance": str, "capability": str, "technical": str, "macro": str, "consensus": str}`
+
+### 4.2.1 filing_digest (S5 — 공시·보고서 핵심 섹션 요약)
+
+```text
+아래는 공시·보고서 원문 전체가 아니라 핵심 섹션만 추출한 입력이다.
+[섹션] {[{filing_type, date, url, sections: {mda|risk_factors|business_overview|business_risk|governance}}]}
+
+임무: 정량 수치를 만들지 말고 섹션의 정성 내용만 요약하라.
+- business_summary: 사업 개요와 MD&A 핵심을 3~5문장.
+- risk_summary: 사업위험·Risk Factors 핵심을 3~5문장.
+- governance_summary: 지배구조 관련 내용이 있으면 3~5문장, 없으면 확인 범위와 결측을 명시.
+- sources에는 사용한 filing_type·date·url을 그대로 복사한다.
+```
+
+출력: `{"business_summary": str, "risk_summary": str, "governance_summary": str, "sources": [{"filing_type": str, "date": str, "url": str}]}`
 
 ### 4.3 portfolio_coach (S6)
 
@@ -182,5 +199,5 @@ sentiment: -1(매우 부정)~+1(매우 긍정), 제목·요약 톤 기준.
 
 - 숫자 검증(해설·판정 텍스트): 출력 텍스트에서 정규식 `[0-9]+(\.[0-9]+)?`로 수치 추출 → 입력 payload 직렬화 문자열에 존재하지 않는 3자리 이상 수치가 있으면 재시도 사유에 명시. (반올림 허용: 소수 1자리 반올림 값도 허용 집합에 포함. event_digest body의 각주 `[n]`은 수치 검증에서 제외하되, n이 해당 카드 source_urls 인덱스 범위를 벗어나면 카드 폐기, #35)
 - **진입 타점 범위 가드(하이브리드)**: committee.entry_hint·portfolio_coach.entry_zone의 zone_low·zone_high는 (a) `zone_low ≤ zone_high`, (b) 둘 다 양수, (c) `[low_252d×0.9, high_252d×1.1]` 범위 내, (d) `last`의 ±25% 내를 만족해야 한다. 위반 시 1회 재시도 → 그래도 위반이거나 degraded면 **엔진 ref_buy_zone(수식)으로 폴백**하고 entry_rationale에 "수식 폴백"을 표기. (진입 타점은 숫자 생성이 허용된 예외이므로 위 '숫자 검증'의 3자리 규칙 대상에서 zone 값은 제외.)
-- 하루 호출 상한: task별 상한 상수 — event_digest 2, sector_outlook 2, committee 30(S4 게시 후보 + S5 보유-only + 온디맨드 합. S5는 S4 committee를 재사용하므로 중복 계산 없음), stock_report 30, portfolio_coach 30, news_classify 4. 상한 초과 시: committee/stock_report는 stock_analyses NOT NULL 충족 위해 skip 대신 마지막 정상 프로파일로 축약 호출(빈 값 금지), 그 외 task는 skip + degraded.
+- 하루 호출 상한: task별 상한 상수 — event_digest 2, sector_outlook 2, committee 30(S4 게시 후보 + S5 보유-only + 온디맨드 합. S5는 S4 committee를 재사용하므로 중복 계산 없음), stock_report 30, filing_digest 30, portfolio_coach 30, news_classify 4. 상한 초과 시: committee/stock_report는 stock_analyses NOT NULL 충족 위해 skip 대신 마지막 정상 프로파일로 축약 호출(빈 값 금지), filing_digest는 빈 요약 degraded, 그 외 task는 skip + degraded.
 - 타임아웃: 호출당 90s.
