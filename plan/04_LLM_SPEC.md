@@ -36,8 +36,8 @@ async def call(task: str, payload: dict, out_schema: type[BaseModel]) -> BaseMod
 | deepseek-cheap | deepseek/deepseek-chat | 대량 텍스트 요약 |
 | codex | openai/gpt-5-codex | 전역 엔진 Codex. 설정 화면에서 model 값을 자유 입력으로 수정 가능 |
 
-전역 엔진 상태는 `app_settings`의 `key='llm_engine'`, `value='claude'|'codex'` 1행에 저장한다. 기본값은 `claude`다.
-`PUT /admin/llm-engine`은 아래 7개 task 전체를 선택 엔진 프로파일로, fallback을 상대 엔진 프로파일로 일괄 UPDATE한다.
+전역 엔진 상태는 `app_settings`의 `key='llm_engine'`, `value='claude'|'codex'|'manual'` 1행에 저장한다. 기본값은 `claude`다.
+`PUT /admin/llm-engine`은 `claude|codex` 선택 시 아래 7개 task 전체를 선택 엔진 프로파일로, fallback을 상대 엔진 프로파일로 일괄 UPDATE한다. `manual` 선택 시 라우팅은 변경하지 않고, 종목 온디맨드 analyze가 LLM 호출을 건너뛰며 수동 파일 왕복 API(03 §4.1)를 사용한다.
 
 | task | 초기 profile | fallback | 호출 시점 |
 |---|---|---|---|
@@ -50,6 +50,12 @@ async def call(task: str, payload: dict, out_schema: type[BaseModel]) -> BaseMod
 | news_classify | claude-main | codex | S1.5 전처리(S2·S3 이전, 60건 1배치) |
 
 라우팅 테이블(llm_task_routing)에는 위 7종만 시드된다. profile_test는 라우팅을 거치지 않고 설정 페이지가 지정한 프로파일 id로 직접 호출(#21).
+
+### 2.1 수동 LLM 파일 왕복
+
+`GET /stocks/{ticker}/analysis-package`는 종목 분석 LLM 직전 엔진 JSON을 계산해 `filing_digest → committee → stock_report` 순서의 task 패키지로 내보낸다. 각 task 항목은 `{task, system(SYSTEM_COMMON), prompt(render 원문), input(엔진 JSON), output_schema(json schema), depends_on}`을 포함한다. 사용자는 로컬 Codex/Claude Code에서 각 task를 순서대로 실행해 `{"outputs": {"filing_digest": {...}, "committee": {...}, "stock_report": {...}}}`만 반환해야 한다.
+
+`POST /stocks/{ticker}/analysis-result`는 각 output을 아래 pydantic 스키마로 검증한다. 통과 task만 `stock_analyses`에 반영하며, 실패 task는 `task/field/message`를 포함해 422로 보고한다. 패키지와 업로드 원문은 evidence에 동결한다. `app_settings.llm_engine='manual'`인 온디맨드 analyze는 LLM 호출을 하지 않고 `pending_manual` 상태를 저장한다.
 
 ## 3. 공통 시스템 프롬프트 (전 task 앞부분에 고정 삽입)
 

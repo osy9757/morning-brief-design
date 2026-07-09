@@ -122,7 +122,7 @@ ECharts gauge(반원). 기본은 시장 전체 `brief.fear_greed`, 섹터 히트
 | 매크로 | Phase 칩 + macro_fit 게이지 + 소속 섹터 RS/flow 재표기 + llm_text |
 | 근거 | evidence 파일 리스트(파일명·크기·다운로드 버튼) + "이 분석의 모든 숫자는 좌측 파일에서 재계산 가능합니다" 카피 |
 
-미분석 종목 진입 시: "아직 분석되지 않은 종목" 상태 화면 + 로그인 사용자 [지금 분석하기] 버튼(POST analyze → 진행 스피너 → 완료 시 리로드). 분석된 종목은 결과와 [재수집] 버튼을 함께 표시한다. 재수집은 로그인 사용자만 가능하며 429 디바운스나 fresh 응답이면 토스트/상태 메시지로 "최근 갱신됨·다음 가능 시각" 또는 "잠시 후 다시"를 안내한다. 공개 사용자는 저장된 공유 분석 열람만 가능하다.
+미분석 종목 진입 시: "아직 분석되지 않은 종목" 상태 화면 + 로그인 사용자 [지금 분석하기] 버튼(POST analyze → 진행 스피너 → 완료 시 리로드). 분석된 종목은 결과와 [재수집] 버튼을 함께 표시한다. 재수집은 로그인 사용자만 가능하며 429 디바운스나 fresh 응답이면 토스트/상태 메시지로 "최근 갱신됨·다음 가능 시각" 또는 "잠시 후 다시"를 안내한다. admin은 종목 상세 상단에 [분석 패키지 내보내기]와 [결과 업로드] 버튼을 본다. 내보내기는 `GET /stocks/{ticker}/analysis-package` JSON attachment를 다운로드하고, 업로드는 JSON 파일을 선택해 `POST /stocks/{ticker}/analysis-result`로 전송한 뒤 성공 시 화면을 갱신한다. 422 검증 실패는 오류 메시지를 표시한다. `committee.status='pending_manual'` 또는 탭 `llm_status='pending_manual'`이면 "패키지 대기" 배지를 표시한다. 공개 사용자는 저장된 공유 분석 열람만 가능하다.
 
 ## 6. 포트폴리오 `/portfolio` (요구 8)
 
@@ -135,7 +135,7 @@ ECharts gauge(반원). 기본은 시장 전체 `brief.fear_greed`, 섹터 히트
 
 ## 7. 설정 `/settings` (요구 2)
 
-- **LLM 엔진**: admin 전용 섹션. Claude/Codex 세그먼트 토글을 표시하고 `GET /admin/llm-engine` 현재값을 "현재 엔진 Claude|Codex"로 보여준다. 클릭 시 `PUT /admin/llm-engine {"engine":"claude"|"codex"}`를 호출해 7개 task 라우팅을 일괄 전환하고 상태를 갱신한다. 각 엔진은 `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` 키 존재 여부에 따라 "키 설정됨" 또는 "키 없음(.env 필요)" 배지를 표시한다. 비admin에는 설정 페이지 자체가 노출되지 않는다.
+- **LLM 엔진**: admin 전용 섹션. Claude/Codex/수동 3-way 세그먼트 토글을 표시하고 `GET /admin/llm-engine` 현재값을 "현재 엔진 Claude|Codex|수동"으로 보여준다. 클릭 시 `PUT /admin/llm-engine {"engine":"claude"|"codex"|"manual"}`를 호출한다. Claude/Codex는 7개 task 라우팅을 일괄 전환하고 상태를 갱신하며, 수동은 라우팅을 변경하지 않고 종목 분석 패키지 내보내기/결과 업로드 모드 안내 문구를 표시한다. 각 엔진은 `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` 키 존재 여부에 따라 "키 설정됨" 또는 "키 없음(.env 필요)" 배지를 표시한다. 비admin에는 설정 페이지 자체가 노출되지 않는다.
 - **LLM 프로파일 카드 리스트**: provider·model·temperature 표시, [테스트] 버튼(→ /test, 결과 latency 토스트), 추가/수정 폼(provider 셀렉트 4종 + model 자유입력 + api_key_env 셀렉트).
 - `codex` 프로파일은 provider=openai, 기본 model=`gpt-5-codex`, api_key_env=`OPENAI_API_KEY`이며, model 입력은 설정 화면에서 저장 가능해야 한다(사용자가 실제 모델 id로 수정 가능).
 - **Task 라우팅 테이블**: 7 task 행(profile_test 제외, #21) × (기본 프로파일 셀렉트, fallback 셀렉트). 변경 즉시 PUT. profile_test는 프로파일 카드의 [테스트] 버튼이 선택 프로파일로 직접 호출.

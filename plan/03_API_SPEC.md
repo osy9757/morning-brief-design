@@ -130,11 +130,37 @@
 }
 ```
 
-GET은 저장된 최신 성공 분석을 그대로 반환하며 재수집·재계산을 수행하지 않는다. 응답의 `source`는 `batch|on_demand`이다.
+GET은 저장된 최신 성공 분석을 그대로 반환하며 재수집·재계산을 수행하지 않는다. 응답의 `source`는 `batch|on_demand|manual`이다.
 
-404 `ANALYSIS_NOT_FOUND` — 분석 대상이 아니었던 종목이면 로그인 후 `POST /stocks/{ticker}/analyze` → 200(성공 시 위 분석 payload + `refresh`) 후 GET 재조회. **온디맨드 경로(재감사 M4)**: 대상 티커의 가격을 즉석 수집(S1) → S2.6 팩터·탭 metrics·거버넌스 등급 즉석 계산(단일 종목이라 z-score는 최신 유니버스 분포 기준) → committee 1회 + stock_report → stock_analyses 저장. 미국/기타 종목은 yfinance 조회 실패 시, KR 6자리 종목은 FinanceDataReader(`DataReader(ticker)`) 또는 yfinance `.KS`/`.KQ` 폴백 조회 실패 시 404 `STOCK_NOT_FOUND`. `source='krx'` KR 종목은 재무·뉴스·공시가 없을 수 있으므로 해당 탭은 빈 배열/null metric을 허용하고 분석은 저장한다.
+404 `ANALYSIS_NOT_FOUND` — 분석 대상이 아니었던 종목이면 로그인 후 `POST /stocks/{ticker}/analyze` → 200(성공 시 위 분석 payload + `refresh`) 후 GET 재조회. **온디맨드 경로(재감사 M4)**: 대상 티커의 가격을 즉석 수집(S1) → S2.6 팩터·탭 metrics·거버넌스 등급 즉석 계산(단일 종목이라 z-score는 최신 유니버스 분포 기준) → committee 1회 + stock_report → stock_analyses 저장. `app_settings.llm_engine='manual'`이면 온디맨드 analyze는 LLM 호출을 하지 않고 엔진 데이터(점수·탭 지표·컨센서스·공시 섹션)만 저장하며 `committee.status='pending_manual'`, 각 탭 `llm_status='pending_manual'`로 표시한다. 미국/기타 종목은 yfinance 조회 실패 시, KR 6자리 종목은 FinanceDataReader(`DataReader(ticker)`) 또는 yfinance `.KS`/`.KQ` 폴백 조회 실패 시 404 `STOCK_NOT_FOUND`. `source='krx'` KR 종목은 재무·뉴스·공시가 없을 수 있으므로 해당 탭은 빈 배열/null metric을 허용하고 분석은 저장한다.
 
 `POST /stocks/{ticker}/analyze` 재수집 실행 조건은 (1) 마지막 성공 `updated_at`이 `ANALYSIS_STALE_HOURS`(기본 6)보다 오래됨, (2) 마지막 `last_attempt_at`이 `ANALYSIS_TRIGGER_DEBOUNCE_MIN`(기본 5)보다 오래됨을 모두 만족해야 한다. 데이터가 신선하면 재계산 없이 기존 공유 결과와 `refresh.status="fresh"`를 반환한다. 버튼 디바운스 안이면 429 `ANALYSIS_TRIGGER_DEBOUNCED`. 재계산은 먼저 `last_attempt_at=now`를 기록한 뒤 실행하고, 성공 시 `updated_at`과 `source='on_demand'`를 갱신한다. 실패 시 `updated_at`은 유지하지/올리지 않고 `last_attempt_at`만 남긴다. 같은 종목 동시 트리거는 행 잠금으로 한 번만 실행한다.
+
+### 4.1 수동 LLM 파일 왕복 (admin)
+
+전 엔드포인트 admin 전용이다(role!='admin이면 403 `FORBIDDEN`). 기존 Claude/Codex LLM API 경로는 유지하고, 아래 경로는 사용자가 로컬 Codex/Claude Code에서 실행할 종목 분석 패키지 왕복만 담당한다.
+
+- `GET /stocks/{ticker}/analysis-package` → `application/json` attachment:
+
+```json
+{
+  "ticker": "NVDA",
+  "name": "NVIDIA",
+  "as_of": "2026-07-07",
+  "instructions": "각 task를 순서대로 처리해 outputs[task]에 output_schema를 만족하는 JSON만 채워 반환. 앞 task 결과(filing_digest)를 뒤 task 입력에 사용. 잡담·추가 텍스트 금지.",
+  "tasks": [
+    {"task": "filing_digest", "system": "SYSTEM_COMMON 원문", "prompt": "render 원문", "input": {"엔진 JSON": "..."}, "output_schema": {}, "depends_on": []},
+    {"task": "committee", "system": "SYSTEM_COMMON 원문", "prompt": "render 원문", "input": {"엔진 JSON": "..."}, "output_schema": {}, "depends_on": ["filing_digest"]},
+    {"task": "stock_report", "system": "SYSTEM_COMMON 원문", "prompt": "render 원문", "input": {"엔진 JSON": "..."}, "output_schema": {}, "depends_on": ["filing_digest", "committee"]}
+  ]
+}
+```
+
+패키지의 `input`은 analyze의 LLM 직전 엔진 JSON(점수, 탭 metrics, 컨센서스, 공시 섹션)을 포함한다. `prompt`는 04 §4 원문 프롬프트와 `[입력 JSON]`을 함께 렌더링한 문자열이다.
+
+- `POST /stocks/{ticker}/analysis-result` — JSON body 또는 multipart `file`: `{"outputs":{"filing_digest":{...},"committee":{...},"stock_report":{...}}}`. 각 task를 04 §4 pydantic 스키마로 검증한다. 통과 task만 `stock_analyses`에 반영하고 `source='manual'`, `updated_at=now`로 저장한다. 패키지와 업로드 원문은 evidence `analysis_package.json`, `manual_outputs.json`으로 동결한다.
+  - 200: 저장된 analysis payload.
+  - 422 `MANUAL_RESULT_SCHEMA_INVALID`: 일부 task 실패. 이미 통과한 task는 저장되며, 응답은 `{"error":{"code":"MANUAL_RESULT_SCHEMA_INVALID","message":"...","errors":[{"task":"stock_report","field":"governance","message":"Field required"}]}}`.
 
 ## 5. Evidence (요구 7)
 
@@ -171,8 +197,8 @@ action ∈ WAIT|SELL|PYRAMID|AVERAGE_DOWN|REBALANCE. REBALANCE 시 drift(=weight
 
 전역 엔진 토글은 사용자 결정에 따라 별도 admin 경로를 쓴다. 무인증/비admin 모두 403 `FORBIDDEN`.
 
-- `GET /admin/llm-engine` → `{"engine": "claude", "profiles": {"claude": {"id": 1, "name": "claude-main", "provider": "anthropic", "model": "claude-sonnet-5", "api_key_env": "ANTHROPIC_API_KEY", "has_api_key": false}, "codex": {"id": 4, "name": "codex", "provider": "openai", "model": "gpt-5-codex", "api_key_env": "OPENAI_API_KEY", "has_api_key": false}}}`
-- `PUT /admin/llm-engine` — body `{"engine": "claude"|"codex"}` → 같은 응답. 7개 라우팅 task(event_digest·sector_outlook·committee·stock_report·filing_digest·portfolio_coach·news_classify) 전체의 profile을 선택 엔진 프로파일로, fallback을 상대 엔진 프로파일로 일괄 UPDATE하고 `app_settings.llm_engine`을 갱신한다.
+- `GET /admin/llm-engine` → `{"engine": "claude", "profiles": {"claude": {"id": 1, "name": "claude-main", "provider": "anthropic", "model": "claude-sonnet-5", "api_key_env": "ANTHROPIC_API_KEY", "has_api_key": false}, "codex": {"id": 4, "name": "codex", "provider": "openai", "model": "gpt-5-codex", "api_key_env": "OPENAI_API_KEY", "has_api_key": false}}}` (`engine`은 `manual`도 가능)
+- `PUT /admin/llm-engine` — body `{"engine": "claude"|"codex"|"manual"}` → 같은 응답. `claude|codex`는 7개 라우팅 task(event_digest·sector_outlook·committee·stock_report·filing_digest·portfolio_coach·news_classify) 전체의 profile을 선택 엔진 프로파일로, fallback을 상대 엔진 프로파일로 일괄 UPDATE하고 `app_settings.llm_engine`을 갱신한다. `manual`은 라우팅을 변경하지 않고 `app_settings.llm_engine='manual'`만 저장한다.
 
 - `GET /llm/profiles` → `[{"id", "name", "provider", "model", "api_key_env", "temperature", "max_tokens", "enabled"}]`
 - `POST /llm/profiles` / `PUT /llm/profiles/{id}` / `DELETE /llm/profiles/{id}` (라우팅에서 참조 중이면 409 `PROFILE_IN_USE`)
